@@ -51,18 +51,73 @@
 // http://qiita.com/marumaru8228/items/65fc684383b096f0e548
 //
 //
-  // $.ajax({
-  //   url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
-  //   type: 'GET',
-  //   datatype: 'json',
-  //   data: {
-  //     // 「区分:サービス固有パラメーター」を確認して、必要な情報をdata内に入れましょう。
-  //     applicationId: '1019399324990976605', // (今回はこのIDを使用してください)
-  //     booksGenreId: '001'
-  //   },
-  // }).done(function(data) {
-  //   // この中にデータ取得後の動きを記述していきます。
-  // });
+
+  var num = 1;
+  var hits = 20;
+  var oldSearchWord = '';
+
+  $("#js-search-button").on('click', function(){
+    getAjaxData();
+  });
+
+  function getAjaxData(){
+
+    var searchWord = $("#js-search-word").val();
+
+    if( oldSearchWord !== '' && oldSearchWord !== searchWord ){
+      $('.lists').empty();
+        num = 1;
+    }
+
+    oldSearchWord = searchWord;
+
+    $.ajax({
+      url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
+      type: 'GET',
+      datatype: 'json',
+      data: {
+        keyword: searchWord,
+        hits: hits,
+        page: num,
+        applicationId: '1019399324990976605',
+        booksGenreId: '001'
+      },
+    }).done(function(data) {
+      if( data.count > 0 ){
+
+        var result = createList(data.Items);
+        num = num + 1;
+
+      } else if( data.count === 0 ){
+
+        var result = '<li class="count0" style="text-align: center;"><p>検索結果が見つかりませんでした。</br>別のキーワードで検索して下さい。</p></li>';
+        if( $('.lists').children().hasClass('count0') )result = '';
+
+      }
+
+      $('.lists').prepend(result);
+    }).fail(function(e) {
+      alert('エラー(' + e.status + ') : ' + e.responseJSON.error + '。\n\n' + e.responseJSON.error_description);
+    });
+  }
+
+  function createList(data){    
+    var li = '';
+    $.each(data, function(i,index){
+      li += "<li class='lists__item'>" +
+        "<div class='lists__item__inner'>" +
+          "<a href='" + index.Item.itemUrl + "' class='lists__item__link' target='_blank'>" +
+            "<img src='" + index.Item.largeImageUrl + "' class='lists__item__img' alt=''>" +
+            "<p class='lists__item__detail'>作品名：" + index.Item.title + "</p>" +
+            "<p class='lists__item__detail'>作者　：" + index.Item.author + "</p>" +
+            "<p class='lists__item__detail'>出版社：" + index.Item.publisherName + "</p>" +
+          "</a>" +
+        "</div>" + 
+      "</li>";
+    });
+    return li;
+  }
+  
 //
 </script>
 </body>

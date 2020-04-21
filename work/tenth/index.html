@@ -1,124 +1,201 @@
 <!doctype html>
 <html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="format-detection" content="telephone=no">
-<title>jQuery</title>
-<link rel="stylesheet" href="../../common/css/reset.css">
-<link rel="stylesheet" href="../../common/css/base.css">
-<link rel="stylesheet" href="./css/style.css">
-</head>
-<body>
-<div class="wrap">
-  <div class="container">
-    <div class="header">
-      <p class="header__title">Search Books!</p>
-    </div>
-    <div class="search">
-      <div class="search__text">
-        <input type="text" id="js-search-word" class="search__text__input" placeholder="検索する">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <title>jQuery</title>
+    <link rel="stylesheet" href="../../common/css/reset.css">
+    <link rel="stylesheet" href="../../common/css/base.css">
+    <link rel="stylesheet" href="./css/style.css">
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="container">
+        <div class="header">
+          <p class="header__title">Search Books!</p>
+        </div>
+        <div class="search">
+          <div class="search__text">
+            <input type="text" id="js-search-word" class="search__text__input" placeholder="検索する">
+          </div>
+          <button id="js-search-button" class="search__btn">検索する</button>
+        </div>
+        <ul class="lists"></ul>
       </div>
-      <button id="js-search-button" class="search__btn">検索する</button>
     </div>
-    <ul class="lists"></ul>
-  </div>
-</div>
-<script src="../../common/js/jquery.js"></script>
-<script>
-// 楽天ブックスの総合検索APIを使って製作してください。
-// answerの挙動を良く見てね！
-//
-// https://webservice.rakuten.co.jp/api/booksbooksearch/
-//
-// $.ajax と $.each を調べてみてください
-// 以下は今回使う$.ajaxの基本的な形です。
-//
-// $.ajaxによってデータが取得できたら、必要なデータ(作品名とか作者名とか)を取得します。
-// 取得できたらDOM上に<ul class='lists'></ul>を用意しているので、その中に下のテンプレに沿ってデータを入れ込みましょう。
-// <li class='lists__item'>
-//  <div class='lists__item__inner'>
-//    <a href='' class='lists__item__link' target='_blank'>
-//      <img src='' class='lists__item__img' alt=''>
-//      <p class='lists__item__detail'>作品名：</p>
-//      <p class='lists__item__detail'>作者　：</p>
-//      <p class='lists__item__detail'>出版社：</p>
-//    </a>
-//  </div>
-// </li>
-//
-// オブジェクトで取得したデータへのアクセス方法 以下参考程度に
-// http://qiita.com/marumaru8228/items/65fc684383b096f0e548
-//
-//
+    <script src="../../common/js/jquery.js"></script>
+    <script>
+      // 楽天ブックスの総合検索APIを使って製作してください。
+      // answerの挙動を良く見てね！
+      //
+      // 下記URLにAPIの仕様が載ってるいので、ブラウザで開いて参考にしてください。
+      // https://webservice.rakuten.co.jp/api/bookstotalsearch/
+      //
+      //
+      // [使うメソッド]
+      // $.each(配列, function functionName() {}) 配列に対しての繰り返し処理
+      // $.ajax({}) 外部ファイルやURLに対してデータをリクエストすることができます。
+      // 以下は今回使う$.ajaxの基本的な形です。
+      //
+      // $.ajax({
+      //   url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
+      //   type: 'GET',
+      //   datatype: 'json',
+      //   data: {
+      //     // 「区分:サービス固有パラメーター」を確認して、必要な情報をdata内に入れましょう。
+      //     applicationId: '1019399324990976605', // (今回はこのIDを使用してください) ※IDは他サイト等には絶対に転載しないでください
+      //     booksGenreId: '001'
+      //   },
+      // }).done(function(data) {
+      //   // この中にデータ取得後の動きを記述していきます。
+      //   console.log(data);
+      // });
+      //
+      //
+      // $.ajaxによってデータが取得できたら、必要なデータ(作品名とか作者名とか)を取得します。
+      // 取得できたらHTMLに<ul class='lists'></ul>を用意しているので、下のテンプレに沿ってデータを入れ込みましょう。
+      // <li class='lists__item'>
+      //  <div class='lists__item__inner'>
+      //    <a href='' class='lists__item__link' target='_blank'>
+      //      <img src='' class='lists__item__img' alt=''>
+      //      <p class='lists__item__detail'>作品名：</p>
+      //      <p class='lists__item__detail'>作者　：</p>
+      //      <p class='lists__item__detail'>出版社：</p>
+      //    </a>
+      //  </div>
+      // </li>
+      //
+      // 取得できた書籍の件数をもとに、ページャを作成しましょう
+      // ページャの条件
+      // ├ 「前へ」と「次へ」のボタンがある
+      // ├ 1ページ目では「前へ」に、最後のページでは「次へ」にdisabledクラスをつけて非活性（使用不能）にする
+      // └ 1ページしかない場合はどちらもdisabledクラスをつけて非活性にする
+      // 
+      // ページャのテンプレート
+      // <div class="js-pager">
+      //   <ul class="btn-wrapper">
+      //     <li class="prev btn-item"><a class="btn-anchor" href="">前へ</a></li>
+      //     <li class="next btn-item"><a class="btn-anchor" href="">次へ</a></li>
+      //   </ul>
+      // </div>
+      //
+      //
 
-  var num = 1;
-  var hits = 20;
-  var oldSearchWord = '';
+      $(function(){
+        $("#js-search-button").on('click', function() {
+          getBookData(1);
+        });
 
-  $("#js-search-button").on('click', function(){
-    getAjaxData();
-  });
+        $("body").on('click', '.next', function() {
+          if (!$(this).hasClass('disabled')) {            
+            getBookData(pageNextNum);            
+          } else if (!$(".lists").prev().hasClass('message')) {            
+            $('.lists').before('<div class="message">これ以上はありません</div>');
+          }
+        });
 
-  function getAjaxData(){
+        $("body").on('click', '.prev', function(){
+          if ($(this).hasClass('disabled')) {
+            return false;
+          }          
+          getBookData(pagePrevNum);
+        });
 
-    var searchWord = $("#js-search-word").val();
+      });
 
-    if( oldSearchWord !== '' && oldSearchWord !== searchWord ){
-      $('.lists').empty();
-        num = 1;
-    }
+      var hits = 20;
+      var pagePrevNum;
+      var pageNextNum;
 
-    oldSearchWord = searchWord;
+      // Ajaxでデータを取得
+      function getBookData(num) {
+        var searchWord = $("#js-search-word").val();
+        $(".message").remove();
+        $(".lists").empty();
+        $.ajax({
+          url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
+          type: 'GET',
+          datatype: 'json',
+          data: {
+            applicationId: '1019399324990976605',
+            booksGenreId: '001',
+            keyword: searchWord,
+            hits: hits,
+            page: num,
+          },
+        }).done(function(data) {
+          $(".lists").html(createList(data.Items));
+          addPageBtn();
+          setPageNum(data);
+        }).fail(function(e) {
+          addErrorMessage(e);
+        });
+      };
 
-    $.ajax({
-      url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
-      type: 'GET',
-      datatype: 'json',
-      data: {
-        keyword: searchWord,
-        hits: hits,
-        page: num,
-        applicationId: '1019399324990976605',
-        booksGenreId: '001'
-      },
-    }).done(function(data) {
-      if( data.count > 0 ){
+      // 取得してきたデータを元に表示する文字列を作成
+      function createList(data) {
+        if (data.length === 0) {
+          return '<div class="message">検索結果が見つかりませんでした。</br>別のキーワードで検索して下さい。</div>';
+        }
+        
+        var li = '';
+        $.each(data,function(i, item){
+          li += "<li class='lists__item'>" +
+                "<div class='lists__item__inner'>" +
+                  "<a href='" + item.Item.itemUrl + "' class='lists__item__link' target='_blank'>" +
+                    "<img src='" + item.Item.largeImageUrl + "' class='lists__item__img' alt=''>" +
+                    "<p class='lists__item__detail'>作品名：" + item.Item.title + "</p>" +
+                    "<p class='lists__item__detail'>作者　：" + item.Item.author + "</p>" +
+                    "<p class='lists__item__detail'>出版社：" + item.Item.publisherName + "</p>" +
+                  "</a>" +
+                "</div>" + 
+              "</li>";
+        });
+        return li;
+      };
 
-        var result = createList(data.Items);
-        num = num + 1;
+      // ページャーを追記
+      function addPageBtn() {
+        $(".js-pager").remove();
+        var page = '<div class="js-pager">' +
+            '<ul class="btn-wrapper">' +
+              '<li class="prev btn-item"><a class="btn-anchor" href="#">前へ</a></li>' +
+              '<li class="next btn-item"><a class="btn-anchor" href="#">次へ</a></li>' +
+            '</ul>' +
+          '</div>';
+        $(".lists").after(page);
+      };
 
-      } else if( data.count === 0 ){
+      // 取得してきたデータを元に変数の値を設定、ページャーのボタンの変化
+      function setPageNum(data) {
+        if(data.page === 0 && data.pageCount === 0) {
+          $(".prev").addClass('disabled');
+          $(".next").addClass('disabled');
+        }
+             
+        pagePrevNum = data.page - 1;
+        pageNextNum = data.page + 1;
+        if (data.page === 1) {
+          $(".prev").addClass('disabled');
+        }
+        if (data.page === data.pageCount) {
+          $(".next").addClass('disabled');
+        }
+      };
 
-        var result = '<li class="count0" style="text-align: center;"><p>検索結果が見つかりませんでした。</br>別のキーワードで検索して下さい。</p></li>';
-        if( $('.lists').children().hasClass('count0') )result = '';
+      // エラーメッセージ分岐
+      function addErrorMessage(e) {        
+        if ($("#js-search-word").val().length === 1 || $("#js-search-word").val().length === 0) {
+          var message = '検索文字が空、もしくは半角英数1文字になっています';
+        } else if (e.status === 429) {
+          var message = '予期せぬエラーが発生しました。';
+        } else if (e.status === 0) {
+          var message = '通信に失敗しました。インターネットの接続をご確認ください';
+        }
+        $('.lists').before('<div class="message">'+message+'</div>');
+      };
 
-      }
-
-      $('.lists').prepend(result);
-    }).fail(function(e) {
-      alert('エラー(' + e.status + ') : ' + e.responseJSON.error + '。\n\n' + e.responseJSON.error_description);
-    });
-  }
-
-  function createList(data){    
-    var li = '';
-    $.each(data, function(i,index){
-      li += "<li class='lists__item'>" +
-        "<div class='lists__item__inner'>" +
-          "<a href='" + index.Item.itemUrl + "' class='lists__item__link' target='_blank'>" +
-            "<img src='" + index.Item.largeImageUrl + "' class='lists__item__img' alt=''>" +
-            "<p class='lists__item__detail'>作品名：" + index.Item.title + "</p>" +
-            "<p class='lists__item__detail'>作者　：" + index.Item.author + "</p>" +
-            "<p class='lists__item__detail'>出版社：" + index.Item.publisherName + "</p>" +
-          "</a>" +
-        "</div>" + 
-      "</li>";
-    });
-    return li;
-  }
-  
-//
-</script>
-</body>
+    </script>
+  </body>
 </html>

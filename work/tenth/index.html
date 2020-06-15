@@ -71,7 +71,7 @@
       // ├ 「前へ」と「次へ」のボタンがある
       // ├ 1ページ目では「前へ」に、最後のページでは「次へ」にdisabledクラスをつけて非活性（使用不能）にする
       // └ 1ページしかない場合はどちらもdisabledクラスをつけて非活性にする
-      // 
+      //
       // ページャのテンプレート
       // <div class="js-pager">
       //   <ul class="btn-wrapper">
@@ -83,119 +83,148 @@
       //
 
       $(function(){
+        // 定数は大文字
+        var HITS = 20;
+        // 初期値として定義できないものにnullを使う
+        // 型は意識
+        // 現在のページ数にしてボタン操作で＋ーする
+        // var $header = $(".header");
+        var currentPage = null;
+        var searchWord = '';
+
         $("#js-search-button").on('click', function() {
-          getBookData(1);
+          searchWord = $("#js-search-word").val();
+          currentPage = 1;
+          getBookData(currentPage);
         });
 
-        $("body").on('click', '.next', function() {
-          if (!$(this).hasClass('disabled')) {            
-            getBookData(pageNextNum);            
-          } else if (!$(".lists").prev().hasClass('message')) {            
-            $('.lists').before('<div class="message">これ以上はありません</div>');
+        $(document).on('click', '.next', function() {
+          if ($(this).hasClass('disabled')) {
+            // メッセージが出現してない時
+            if (!$(".lists").prev().hasClass('message')){
+              $('.lists').before('<div class="message">これ以上はありません</div>');
+            }
+          } else {
+            var nextPage = currentPage + 1;
+            getBookData(nextPage);
           }
         });
 
-        $("body").on('click', '.prev', function(){
+        $(document).on('click', '.prev', function(){
           if ($(this).hasClass('disabled')) {
             return false;
-          }          
-          getBookData(pagePrevNum);
+          } else {
+            var prevPage = currentPage - 1;
+            getBookData(prevPage);
+          }
         });
 
+        // Ajaxでデータを取得
+        function getBookData(num) {
+          pageReset();
+          $.ajax({
+            url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
+            type: 'GET',
+            datatype: 'json',
+            data: {
+              applicationId: '1019399324990976605',
+              booksGenreId: '001',
+              keyword: searchWord,
+              hits: HITS,
+              page: num,
+            },
+          }).done(function(data) {
+            showBookData(data);
+          }).fail(function(e) {
+            addErrorMessage(e);
+          });
+        };
+
+        function pageReset() {
+          $(".message").remove();
+          $(".lists").empty();
+          $(".js-pager").remove();
+        }
+
+        function showBookData(data) {
+          if (data.count === 0) {
+            $(".lists").html('<div class="message">検索結果が見つかりませんでした。</br>別のキーワードで検索して下さい。</div>');
+          } else {
+            $(".lists").html(createList(data.Items));
+            addPageBtn();
+            setPageNum(data);
+          }
+        }
+
+        // 取得してきたデータを元に表示する文字列を作成
+        function createList(data) {
+          var li = '';
+          $.each(data,function(i, item){
+            li += "<li class='lists__item'>" +
+                  "<div class='lists__item__inner'>" +
+                    "<a href='" + item.Item.itemUrl + "' class='lists__item__link' target='_blank'>" +
+                      "<img src='" + item.Item.largeImageUrl + "' class='lists__item__img' alt=''>" +
+                      "<p class='lists__item__detail'>作品名：" + item.Item.title + "</p>" +
+                      "<p class='lists__item__detail'>作者　：" + item.Item.author + "</p>" +
+                      "<p class='lists__item__detail'>出版社：" + item.Item.publisherName + "</p>" +
+                    "</a>" +
+                  "</div>" +
+                "</li>";
+          });
+          return li;
+        };
+
+        // ページャーを追記
+        function addPageBtn() {
+          var page = '<div class="js-pager">' +
+              '<ul class="btn-wrapper">' +
+                '<li class="prev btn-item"><a class="btn-anchor" href="#">前へ</a></li>' +
+                '<li class="next btn-item"><a class="btn-anchor" href="#">次へ</a></li>' +
+              '</ul>' +
+            '</div>';
+          $(".lists").after(page);
+        };
+
+        // 取得してきたデータを元に変数の値を設定、ページャーのボタンの変化
+        function setPageNum(data) {
+          if(data.page === 0 && data.pageCount === 0) {
+            $(".prev").addClass('disabled');
+            $(".next").addClass('disabled');
+          }
+          if (data.page === data.pageCount) {
+            $(".next").addClass('disabled');
+          }
+          if (data.page === 1) {
+            $(".prev").addClass('disabled');
+          }
+          currentPage = data.page;
+        };
+
+        // エラーメッセージ分岐
+        function addErrorMessage(e) {
+          switch (e.status) {
+            case 0:
+              var message = '通信に失敗しました。インターネットの接続をご確認ください';
+              break;
+            case 400:
+              var message = '検索文字が空、もしくは半角英数1文字になっています';
+              break;
+            case 429:
+              var message = '予期せぬエラーが発生しました。';
+              break;
+            case 500:
+              var message = 'システムエラー。復旧までお待ちください。';
+              break;
+            case 503:
+              var message = 'アクセス過多です。時間をおいてアクセスしてください。';
+              break;
+            default:
+              var message = '原因不明のエラーが発生しました。';
+              break;
+          }
+          $('.lists').before('<div class="message">'+message+'</div>');
+        };
       });
-
-      var hits = 20;
-      var pagePrevNum;
-      var pageNextNum;
-
-      // Ajaxでデータを取得
-      function getBookData(num) {
-        var searchWord = $("#js-search-word").val();
-        $(".message").remove();
-        $(".lists").empty();
-        $.ajax({
-          url: 'https://app.rakuten.co.jp/services/api/BooksTotal/Search/20130522',
-          type: 'GET',
-          datatype: 'json',
-          data: {
-            applicationId: '1019399324990976605',
-            booksGenreId: '001',
-            keyword: searchWord,
-            hits: hits,
-            page: num,
-          },
-        }).done(function(data) {
-          $(".lists").html(createList(data.Items));
-          addPageBtn();
-          setPageNum(data);
-        }).fail(function(e) {
-          addErrorMessage(e);
-        });
-      };
-
-      // 取得してきたデータを元に表示する文字列を作成
-      function createList(data) {
-        if (data.length === 0) {
-          return '<div class="message">検索結果が見つかりませんでした。</br>別のキーワードで検索して下さい。</div>';
-        }
-        
-        var li = '';
-        $.each(data,function(i, item){
-          li += "<li class='lists__item'>" +
-                "<div class='lists__item__inner'>" +
-                  "<a href='" + item.Item.itemUrl + "' class='lists__item__link' target='_blank'>" +
-                    "<img src='" + item.Item.largeImageUrl + "' class='lists__item__img' alt=''>" +
-                    "<p class='lists__item__detail'>作品名：" + item.Item.title + "</p>" +
-                    "<p class='lists__item__detail'>作者　：" + item.Item.author + "</p>" +
-                    "<p class='lists__item__detail'>出版社：" + item.Item.publisherName + "</p>" +
-                  "</a>" +
-                "</div>" + 
-              "</li>";
-        });
-        return li;
-      };
-
-      // ページャーを追記
-      function addPageBtn() {
-        $(".js-pager").remove();
-        var page = '<div class="js-pager">' +
-            '<ul class="btn-wrapper">' +
-              '<li class="prev btn-item"><a class="btn-anchor" href="#">前へ</a></li>' +
-              '<li class="next btn-item"><a class="btn-anchor" href="#">次へ</a></li>' +
-            '</ul>' +
-          '</div>';
-        $(".lists").after(page);
-      };
-
-      // 取得してきたデータを元に変数の値を設定、ページャーのボタンの変化
-      function setPageNum(data) {
-        if(data.page === 0 && data.pageCount === 0) {
-          $(".prev").addClass('disabled');
-          $(".next").addClass('disabled');
-        }
-             
-        pagePrevNum = data.page - 1;
-        pageNextNum = data.page + 1;
-        if (data.page === 1) {
-          $(".prev").addClass('disabled');
-        }
-        if (data.page === data.pageCount) {
-          $(".next").addClass('disabled');
-        }
-      };
-
-      // エラーメッセージ分岐
-      function addErrorMessage(e) {        
-        if ($("#js-search-word").val().length === 1 || $("#js-search-word").val().length === 0) {
-          var message = '検索文字が空、もしくは半角英数1文字になっています';
-        } else if (e.status === 429) {
-          var message = '予期せぬエラーが発生しました。';
-        } else if (e.status === 0) {
-          var message = '通信に失敗しました。インターネットの接続をご確認ください';
-        }
-        $('.lists').before('<div class="message">'+message+'</div>');
-      };
-
     </script>
   </body>
 </html>
